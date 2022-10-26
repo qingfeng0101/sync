@@ -14,12 +14,14 @@ type File struct {
 }
 
 func (f *File) Sendfile()  {
+
 	b,e := json.Marshal(f)
 	if e != nil{
-		fmt.Println("json.Marshal err: ",e)
+		fmt.Println("encoder.Encode err: ",e)
 		return
 	}
-	re,e := http.Post("http://"+os.Getenv("clientaddr")+"/file/","application/octet-stream",bytes.NewReader(b))
+	fmt.Println("file Sendfile file name: ",f.Name)
+	re,e := http.Post("http://"+os.Getenv("clientaddr")+"/file/","application/json;utf-8",bytes.NewReader(b))
 	defer re.Body.Close()
 	if e != nil{
 		fmt.Println("post err: ",e)

@@ -42,6 +42,7 @@ func NilDir(path string,watch *fsnotify.Watcher)  {
 			file.Senddir()
 			NilDir(path +"/"+dir.Name(),watch)
 		}else {
+			fmt.Println("file name: ",path +"/"+dir.Name())
 			f, e := os.Open(path +"/"+dir.Name())
 			if e != nil{
 				fmt.Println("open file err: ",e)
@@ -50,6 +51,7 @@ func NilDir(path string,watch *fsnotify.Watcher)  {
 			s,_ := f.Stat()
 			buf := make([]byte,s.Size())
 			f.Read(buf)
+
 			var file =  &file2.File{
 				Name: path +"/"+dir.Name(),
 				Date: buf,

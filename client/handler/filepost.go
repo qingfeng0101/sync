@@ -3,6 +3,7 @@ package handler
 import (
 	"bufio"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -12,20 +13,23 @@ import (
 
 
 func filepost(w http.ResponseWriter,r *http.Request)  {
-	size := r.ContentLength
-	buf := make([]byte,size)
-	r.Body.Read(buf)
+	http_body,_ := ioutil.ReadAll(r.Body)
 	var file file2.File
-	json.Unmarshal(buf,&file)
+	err := json.Unmarshal(http_body,&file)
+	if err != nil{
+		log.Println("json.Unmarshal err: ",err)
+		return
+	}
 	f,e := os.OpenFile(file.Name,os.O_WRONLY|os.O_CREATE, 0666)
 	if e != nil{
+		log.Println("file name: ",file.Name)
 		log.Println("OpenFile err: ",e)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	defer f.Close()
 	write := bufio.NewWriter(f)
-	_,err := write.Write(file.Date)
+	_,err = write.Write(file.Date)
 	if err != nil{
 		log.Println("Write err: ",err)
 		w.WriteHeader(http.StatusInternalServerError)
