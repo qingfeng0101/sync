@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-const Buf = 10
+const Buf = 1048576
 var Bufs = make([]byte,Buf)
 type File struct {
 	Name string `json:"name"`
