@@ -19,7 +19,7 @@ func Handler(w http.ResponseWriter,r *http.Request)  {
 		return
 	}
 	if strings.Split(r.URL.EscapedPath(),"/")[1] == "delete"{
-		delete(w,r)
+		del(w,r)
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)

@@ -8,7 +8,7 @@ import (
 	file2 "sync/file"
 )
 
-func delete(w http.ResponseWriter,r *http.Request)  {
+func del(w http.ResponseWriter,r *http.Request)  {
 	size := r.ContentLength
 	buf := make([]byte,size)
 	r.Body.Read(buf)

@@ -9,7 +9,7 @@ import (
 )
 
 const Buf = 1048576
-var Bufs = make([]byte,Buf)
+var Bufs = make([]byte, Buf)
 type File struct {
 	Name string `json:"name"`
 	Date []byte `json:"date"`

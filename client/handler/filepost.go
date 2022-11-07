@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"bufio"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -10,7 +10,7 @@ import (
 	file2 "sync/file"
 )
 
-
+var filestatus = make(map[string]int)
 
 func filepost(w http.ResponseWriter,r *http.Request)  {
 	http_body,_ := ioutil.ReadAll(r.Body)
@@ -20,24 +20,59 @@ func filepost(w http.ResponseWriter,r *http.Request)  {
 		log.Println("json.Unmarshal err: ",err)
 		return
 	}
-	f,e := os.OpenFile(file.Name,os.O_WRONLY|os.O_CREATE, 0666)
-	if e != nil{
-		log.Println("file name: ",file.Name)
-		log.Println("OpenFile err: ",e)
+	if file.Operation == "create" {
+		err := sync(file, os.O_CREATE)
+		fmt.Println("创建数据")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		filestatus[file.Name] = 1
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if _,ok := filestatus[file.Name];ok && file.Shard == 0{
+		err = sync(file,os.O_APPEND)
+		fmt.Println("添加数据")
+		if err != nil{
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		delete(filestatus,file.Name)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if _,ok := filestatus[file.Name];ok && file.Shard != 0{
+		err = sync(file,os.O_APPEND)
+		fmt.Println("添加数据")
+		if err != nil{
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if file.Shard == file.Shards{
+			delete(filestatus,file.Name)
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if file.Shard == 0 {
+		err := create(file)
+		fmt.Println("创建数据1 ",string(file.Date))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	err = create(file)
+	fmt.Println("创建数据2")
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
-	write := bufio.NewWriter(f)
-	_,err = write.Write(file.Date)
-	if err != nil{
-		log.Println("Write err: ",err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	write.Flush()
-
-
+	filestatus[file.Name] = 1
 	w.WriteHeader(http.StatusOK)
 	return
 }
