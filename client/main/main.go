@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sync/client/handler"
 )
+
 func main() {
 	http.HandleFunc("/dir/",handler.Handler)
 	http.HandleFunc("/file/",handler.Handler)

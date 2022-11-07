@@ -33,7 +33,7 @@ func Event(watch *fsnotify.Watcher,ch chan int,opendel bool) {
 						fmt.Println("path: ", path)
 					} else {
 						log.Println("创建文件 : ", ev.Name);
-                        var file file2.File
+						file := file2.NewFile()
 						file.Name = ev.Name
 						file.Operation = "create"
 						file.Sendfile()
@@ -62,12 +62,12 @@ func Event(watch *fsnotify.Watcher,ch chan int,opendel bool) {
 						s, _ := f.Stat()
 
 						f.Read(file2.Bufs)
-						var file = &file2.File{
-							Name: ev.Name,
-							Date: file2.Bufs[:s.Size()],
-							Shard: 0,
-							Operation: "append",
-						}
+						file := file2.NewFile()
+						file.Name = ev.Name
+						file.Date = file2.Bufs[:s.Size()]
+						file.Shard = 0
+						file.Operation = "append"
+
 						fmt.Println("写入数据：",string(file.Date))
 						file.Sendfile()
 					}

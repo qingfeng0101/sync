@@ -17,8 +17,15 @@ type File struct {
 	Shards int64 `json:"shards"`
 	Size  int64 `json:"size"`
 	Operation string `json:"operation"`
+    Path string `json:"path"`
 }
 
+func NewFile() (file *File) {
+	basePath := os.Getenv("datadir")
+	return &File{
+		Path: basePath,
+	}
+}
 func (f *File) Sendfile() bool {
 
 	b,e := json.Marshal(f)

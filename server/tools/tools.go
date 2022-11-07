@@ -25,21 +25,18 @@ func NilDir(path string,watch *fsnotify.Watcher) (error) {
 		log.Println("ioutil.ReadDir err: ",e)
 		return e
 	}
-
 	if len(f) == 0{
 		watch.Add(path)
-		var file =  &file2.File{
-			Name: path,
-		}
+		file := file2.NewFile()
+		file.Name = path
 		file.Senddir()
 		return nil
 	}
 	for _,dir := range f{
 		if dir.IsDir(){
 			watch.Add(path +"/"+dir.Name())
-			var file =  &file2.File{
-				Name: path +"/"+dir.Name(),
-			}
+			file := file2.NewFile()
+			file.Name = path +"/"+dir.Name()
 			file.Senddir()
 			NilDir(path +"/"+dir.Name(),watch)
 		}else {
@@ -61,11 +58,9 @@ func NilDir(path string,watch *fsnotify.Watcher) (error) {
 			s,_ := f.Stat()
 			buf := make([]byte,s.Size())
 			f.Read(buf)
-
-			var file =  &file2.File{
-				Name: path +"/"+dir.Name(),
-				Date: buf,
-			}
+			file := file2.NewFile()
+			file.Name = path +"/"+dir.Name()
+			file.Date = buf
 			file.Sendfile()
 		}
 		continue
@@ -105,7 +100,7 @@ func ShardData(path string)  {
     	fmt.Println("ShardData f.Stat: ",err)
 		return
 	}
-	var file file2.File
+	file := file2.NewFile()
     file.Operation = "append"
     file.Name = path
     if info.Size() % file2.Buf == 0{

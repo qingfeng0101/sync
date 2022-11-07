@@ -7,19 +7,42 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	file2 "sync/file"
 )
 
 var filestatus = make(map[string]int)
-
+func PathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
 func filepost(w http.ResponseWriter,r *http.Request)  {
-	http_body,_ := ioutil.ReadAll(r.Body)
-	var file file2.File
-	err := json.Unmarshal(http_body,&file)
+	var Path = os.Getenv("datadir")
+	ok,err := PathExists(Path)
 	if err != nil{
-		log.Println("json.Unmarshal err: ",err)
+		fmt.Println("PathExists err: ",err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	if !ok {
+		os.MkdirAll(Path,os.ModePerm)
+	}
+	http_body,_ := ioutil.ReadAll(r.Body)
+	var file file2.File
+	err = json.Unmarshal(http_body,&file)
+	if err != nil{
+		log.Println("json.Unmarshal err: ",err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	file.Name = strings.Replace(file.Name,file.Path,Path,-1)
 	if file.Operation == "create" {
 		err := sync(file, os.O_CREATE)
 		fmt.Println("创建数据")
