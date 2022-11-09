@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 )
 
 const Buf = 1048576
@@ -17,11 +18,14 @@ type File struct {
 	Size  int64 `json:"size"`
 	Operation string `json:"operation"`
     Path string `json:"path"`
+	Systype string `json:"systype"`
 }
 
 func NewFile(basePath string) (file *File) {
+	var ostype = runtime.GOOS
 	return &File{
 		Path: basePath,
+		Systype: ostype,
 	}
 }
 func (f *File) Sendfile(addr string) bool {

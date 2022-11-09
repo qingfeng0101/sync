@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	file2 "sync/file"
 )
@@ -20,6 +21,7 @@ func IsDir(path string) bool {
 	return f.IsDir()
 }
 // 遍历目录加入watch
+var pathdir string
 func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath string) (error) {
 		f,e := ioutil.ReadDir(path)
 		if e != nil{
@@ -35,25 +37,31 @@ func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath 
 			return nil
 		}
 		for _,dir := range f{
-			if dir.IsDir() &&!Excluddir(path +"/"+dir.Name(),excludes){
-				watch.Add(path +"/"+dir.Name())
+			var ostype = runtime.GOOS
+			if ostype == "windows"{
+				pathdir = path +"\\"+dir.Name()
+			}else if ostype == "linux"{
+				pathdir = path +"/"+dir.Name()
+			}
+			if dir.IsDir() &&!Excluddir(pathdir,excludes){
+				watch.Add(pathdir)
 				file := file2.NewFile(basePath)
-				file.Name = path +"/"+dir.Name()
+				file.Name = pathdir
 
 				file.Senddir(addr)
-				NilDir(path +"/"+dir.Name(),watch,excludes,addr,basePath)
+				NilDir(pathdir,watch,excludes,addr,basePath)
 			} else if !dir.IsDir(){
-				fmt.Println("file name: ",path +"/"+dir.Name())
-				ok,err := DataSize(path +"/"+dir.Name(),file2.Buf)
+
+				ok,err := DataSize(pathdir,file2.Buf)
 				if err != nil{
 					fmt.Println("NilDir DataSize err: ",err)
 					return err
 				}
 				if ok{
-					ShardData(path +"/"+dir.Name(),addr,basePath)
+					ShardData(pathdir,addr,basePath)
 					continue
 				}
-				f, e := os.Open(path +"/"+dir.Name())
+				f, e := os.Open(pathdir)
 				if e != nil{
 					fmt.Println("open file err: ",e)
 					return e
@@ -62,7 +70,7 @@ func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath 
 				buf := make([]byte,s.Size())
 				f.Read(buf)
 				file := file2.NewFile(basePath)
-				file.Name = path +"/"+dir.Name()
+				file.Name = pathdir
 				file.Date = buf
 				file.Sendfile(addr)
 			}
@@ -85,10 +93,10 @@ func DataSize(path string,size int64) (bool,error) {
 		return false,e
 	}
 	if info.Size() > size{
-		fmt.Println("大小1：",info.Size()  )
+
 		return true,nil
 	}
-	fmt.Println("大小2：",info.Size()  )
+
 	return false,nil
 }
 // 分片传入后端服务
@@ -119,10 +127,7 @@ func ShardData(path,addr,basePath string)  {
 			if overnum != 0 {
 				f.Read(file2.Bufs[:overnum])
 				file.Date = file2.Bufs[:overnum]
-				fmt.Println("最后长度：",len(file.Date))
-				fmt.Println("最后字符：",string(file.Date))
-				fmt.Println("总分片数：",file.Shards)
-				fmt.Println("当前分片数：",file.Shards)
+
 				ok := file.Sendfile(addr)
 				if !ok {
 					fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
@@ -149,17 +154,15 @@ func ShardData(path,addr,basePath string)  {
 			break
 		}
 
-		fmt.Println("pppppppp")
+
 	}
 }
 // 判断目录是否排除
 func Excluddir(path string,exclude []string) bool  {
 	for _,name := range exclude{
-		fmt.Println("path: ",path)
-		fmt.Println("name",name)
+
 		if RewritePath(name) == path{
-			fmt.Println("path1: ",path)
-			fmt.Println("name1",name)
+
 			return true
 		}
 	}
@@ -167,8 +170,17 @@ func Excluddir(path string,exclude []string) bool  {
 }
 // 去除目录结尾/
 func RewritePath(path string) string {
-	fn := func(c rune) bool {
-		return strings.ContainsRune("/", c)
+	var fn func(rune) bool
+	var ostype = runtime.GOOS
+	if ostype == "windows"{
+		 fn = func(c rune) bool {
+			return strings.ContainsRune("\\", c)
+		}
+	}else if ostype == "linux"{
+		 fn = func(c rune) bool {
+			return strings.ContainsRune("/", c)
+		}
 	}
+
 	return strings.TrimRightFunc(path, fn)
 }

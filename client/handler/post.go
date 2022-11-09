@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -17,7 +18,11 @@ func post(w http.ResponseWriter,r *http.Request)  {
     var file file2.File
 	r.Body.Read(buf)
 	json.Unmarshal(buf,&file)
+
 	file.Name = strings.Replace(file.Name,file.Path,Path,-1)
+	if file.Systype == "windows"{
+		file.Name = strings.Replace(file.Name,"\\","/",-1)
+	}
     os.MkdirAll(file.Name,os.ModePerm)
     w.WriteHeader(http.StatusOK)
 }

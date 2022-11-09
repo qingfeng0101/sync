@@ -44,6 +44,9 @@ func filepost(w http.ResponseWriter,r *http.Request) {
 	}
 
 	file.Name = strings.Replace(file.Name,file.Path,path,-1)
+	if file.Systype == "windows"{
+		file.Name = strings.Replace(file.Name,"\\","/",-1)
+	}
 	if file.Operation == "create" {
 		err := sync(file, os.O_CREATE)
 		fmt.Println("创建数据")

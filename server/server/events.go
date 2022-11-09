@@ -35,16 +35,16 @@ func Event(watch *fsnotify.Watcher,ch chan int,opendel bool,excludes []string,ad
 							if e != nil{
 								ch <- 1
 							}
-							path := watch.WatchList()
-							fmt.Println("path: ", path)
+							//path := watch.WatchList()
+							//fmt.Println("path: ", path)
 						} else {
 							log.Println("创建文件 : ", ev.Name);
 							file := file2.NewFile(basePath)
 							file.Name = ev.Name
 							file.Operation = "create"
 							file.Sendfile(addr)
-							path := watch.WatchList()
-							fmt.Println("path: ", path)
+							//path := watch.WatchList()
+							//fmt.Println("path: ", path)
 						}
 					}
 
@@ -57,9 +57,9 @@ func Event(watch *fsnotify.Watcher,ch chan int,opendel bool,excludes []string,ad
 					}
 					if ok {
 						tools.ShardData(ev.Name,addr,basePath)
-						fmt.Println("00000000")
+
 					}else {
-						fmt.Println("1111111")
+
 						f, e := os.Open(ev.Name)
 						if e != nil {
 							fmt.Println("open file err: ", e)
@@ -74,8 +74,6 @@ func Event(watch *fsnotify.Watcher,ch chan int,opendel bool,excludes []string,ad
 						file.Date = file2.Bufs[:s.Size()]
 						file.Shard = 0
 						file.Operation = "append"
-
-						fmt.Println("写入数据：",string(file.Date))
 						file.Sendfile(addr)
 					}
 

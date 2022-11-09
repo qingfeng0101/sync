@@ -44,10 +44,10 @@ func main()  {
 
 	// 遍历当前监听的目录，全量数据同步一次
 	tools.NilDir(basePath,watch,excludes,conf.Clientaddr,basePath)
-	fmt.Println("watch1: ",watch.WatchList())
+	//fmt.Println("watch1: ",watch.WatchList())
 	//我们另启一个goroutine来处理监控对象的事件
 	go server.Event(watch,ch,opendel,excludes,conf.Clientaddr,basePath)
-	fmt.Println("watch2: ",watch.WatchList())
+	//fmt.Println("watch2: ",watch.WatchList())
 	//循环
 	<-ch
 	log.Println("服务异常退出")
