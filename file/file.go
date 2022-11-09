@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 )
 
 const Buf = 1048576
@@ -20,13 +19,12 @@ type File struct {
     Path string `json:"path"`
 }
 
-func NewFile() (file *File) {
-	basePath := os.Getenv("datadir")
+func NewFile(basePath string) (file *File) {
 	return &File{
 		Path: basePath,
 	}
 }
-func (f *File) Sendfile() bool {
+func (f *File) Sendfile(addr string) bool {
 
 	b,e := json.Marshal(f)
 	if e != nil{
@@ -34,7 +32,7 @@ func (f *File) Sendfile() bool {
 		return false
 	}
 	fmt.Println("file Sendfile file name: ",f.Name)
-	re,e := http.Post("http://"+os.Getenv("clientaddr")+"/file/","application/json;utf-8",bytes.NewReader(b))
+	re,e := http.Post("http://"+addr+"/file/","application/json;utf-8",bytes.NewReader(b))
 	defer re.Body.Close()
 	if e != nil{
 		fmt.Println("post err: ",e)
@@ -46,13 +44,13 @@ func (f *File) Sendfile() bool {
 	}
 	return true
 }
-func (f *File) Senddir()  {
+func (f *File) Senddir(addr string)  {
 	b,e := json.Marshal(f)
 	if e != nil{
 		fmt.Println("json.Marshal err: ",e)
 		return
 	}
-	re,e := http.Post("http://"+os.Getenv("clientaddr")+"/dir/","application/octet-stream",bytes.NewReader(b))
+	re,e := http.Post("http://"+addr+"/dir/","application/octet-stream",bytes.NewReader(b))
 	//defer re.Body.Close()
 	if e != nil{
 		fmt.Println("post err: ",e)
@@ -63,13 +61,13 @@ func (f *File) Senddir()  {
 		return
 	}
 }
-func (f *File) Delete()  {
+func (f *File) Delete(addr string)  {
 	b,e := json.Marshal(f)
 	if e != nil{
 		fmt.Println("json.Marshal err: ",e)
 		return
 	}
-	re,e := http.Post("http://"+os.Getenv("clientaddr")+"/delete/","application/octet-stream",bytes.NewReader(b))
+	re,e := http.Post("http://"+addr+"/delete/","application/octet-stream",bytes.NewReader(b))
 	//defer re.Body.Close()
 	if e != nil{
 		fmt.Println("post err: ",e)

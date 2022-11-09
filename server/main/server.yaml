@@ -1,0 +1,8 @@
+# 需要同步的目录
+datadir: "/tmp-test"
+# 客户端连接地址
+clientaddr: "192.168.10.2:8010"
+# 是否同步删除操作，true为同步，false为不同步
+delete: false
+# 排除的目录，注意逗号分隔
+exclude: "/tmp-test/a,/tmp-test/c/"

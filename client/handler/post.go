@@ -6,13 +6,14 @@ import (
 	"os"
 	"strings"
 	file2 "sync/file"
+	"sync/server/tools"
 )
 
 
 func post(w http.ResponseWriter,r *http.Request)  {
     size := r.ContentLength
     buf := make([]byte,size)
-	var Path = os.Getenv("datadir")
+	var Path = tools.RewritePath(Client.DataDIr)
     var file file2.File
 	r.Body.Read(buf)
 	json.Unmarshal(buf,&file)

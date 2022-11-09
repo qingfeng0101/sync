@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	file2 "sync/file"
 )
 var overnum int64
@@ -19,52 +20,55 @@ func IsDir(path string) bool {
 	return f.IsDir()
 }
 // 遍历目录加入watch
-func NilDir(path string,watch *fsnotify.Watcher) (error) {
-	f,e := ioutil.ReadDir(path)
-	if e != nil{
-		log.Println("ioutil.ReadDir err: ",e)
-		return e
-	}
-	if len(f) == 0{
-		watch.Add(path)
-		file := file2.NewFile()
-		file.Name = path
-		file.Senddir()
-		return nil
-	}
-	for _,dir := range f{
-		if dir.IsDir(){
-			watch.Add(path +"/"+dir.Name())
-			file := file2.NewFile()
-			file.Name = path +"/"+dir.Name()
-			file.Senddir()
-			NilDir(path +"/"+dir.Name(),watch)
-		}else {
-			fmt.Println("file name: ",path +"/"+dir.Name())
-			ok,err := DataSize(path +"/"+dir.Name(),file2.Buf)
-			if err != nil{
-				fmt.Println("NilDir DataSize err: ",err)
-				return err
-			}
-			if ok{
-				ShardData(path +"/"+dir.Name())
-				continue
-			}
-			f, e := os.Open(path +"/"+dir.Name())
-			if e != nil{
-				fmt.Println("open file err: ",e)
-				return e
-			}
-			s,_ := f.Stat()
-			buf := make([]byte,s.Size())
-			f.Read(buf)
-			file := file2.NewFile()
-			file.Name = path +"/"+dir.Name()
-			file.Date = buf
-			file.Sendfile()
+func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath string) (error) {
+		f,e := ioutil.ReadDir(path)
+		if e != nil{
+			log.Println("ioutil.ReadDir err: ",e)
+			return e
 		}
-		continue
-	}
+		if len(f) == 0 && !Excluddir(path,excludes){
+
+			watch.Add(path)
+			file := file2.NewFile(basePath)
+			file.Name = path
+			file.Senddir(addr)
+			return nil
+		}
+		for _,dir := range f{
+			if dir.IsDir() &&!Excluddir(path +"/"+dir.Name(),excludes){
+				watch.Add(path +"/"+dir.Name())
+				file := file2.NewFile(basePath)
+				file.Name = path +"/"+dir.Name()
+
+				file.Senddir(addr)
+				NilDir(path +"/"+dir.Name(),watch,excludes,addr,basePath)
+			} else if !dir.IsDir(){
+				fmt.Println("file name: ",path +"/"+dir.Name())
+				ok,err := DataSize(path +"/"+dir.Name(),file2.Buf)
+				if err != nil{
+					fmt.Println("NilDir DataSize err: ",err)
+					return err
+				}
+				if ok{
+					ShardData(path +"/"+dir.Name(),addr,basePath)
+					continue
+				}
+				f, e := os.Open(path +"/"+dir.Name())
+				if e != nil{
+					fmt.Println("open file err: ",e)
+					return e
+				}
+				s,_ := f.Stat()
+				buf := make([]byte,s.Size())
+				f.Read(buf)
+				file := file2.NewFile(basePath)
+				file.Name = path +"/"+dir.Name()
+				file.Date = buf
+				file.Sendfile(addr)
+			}
+			continue
+		}
+
 	return nil
 }
 // 判断文件大小是否使用分片
@@ -88,7 +92,7 @@ func DataSize(path string,size int64) (bool,error) {
 	return false,nil
 }
 // 分片传入后端服务
-func ShardData(path string)  {
+func ShardData(path,addr,basePath string)  {
     f,err := os.Open(path)
     if err != nil{
     	fmt.Println("ShardData os.Open err: ",err)
@@ -100,7 +104,7 @@ func ShardData(path string)  {
     	fmt.Println("ShardData f.Stat: ",err)
 		return
 	}
-	file := file2.NewFile()
+	file := file2.NewFile(basePath)
     file.Operation = "append"
     file.Name = path
     if info.Size() % file2.Buf == 0{
@@ -119,7 +123,7 @@ func ShardData(path string)  {
 				fmt.Println("最后字符：",string(file.Date))
 				fmt.Println("总分片数：",file.Shards)
 				fmt.Println("当前分片数：",file.Shards)
-				ok := file.Sendfile()
+				ok := file.Sendfile(addr)
 				if !ok {
 					fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
 					return
@@ -128,7 +132,7 @@ func ShardData(path string)  {
 			}
 			f.Read(file2.Bufs)
 			file.Date = file2.Bufs
-			ok := file.Sendfile()
+			ok := file.Sendfile(addr)
 			if !ok {
 				fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
 				return
@@ -139,7 +143,7 @@ func ShardData(path string)  {
 
 		f.Read(file2.Bufs)
 		file.Date = file2.Bufs
-		ok := file.Sendfile()
+		ok := file.Sendfile(addr)
 		if !ok {
 			fmt.Printf("数据同步失败，切片：%d,文件名：%s", file.Shard, file.Name)
 			break
@@ -147,4 +151,24 @@ func ShardData(path string)  {
 
 		fmt.Println("pppppppp")
 	}
+}
+// 判断目录是否排除
+func Excluddir(path string,exclude []string) bool  {
+	for _,name := range exclude{
+		fmt.Println("path: ",path)
+		fmt.Println("name",name)
+		if RewritePath(name) == path{
+			fmt.Println("path1: ",path)
+			fmt.Println("name1",name)
+			return true
+		}
+	}
+	return false
+}
+// 去除目录结尾/
+func RewritePath(path string) string {
+	fn := func(c rune) bool {
+		return strings.ContainsRune("/", c)
+	}
+	return strings.TrimRightFunc(path, fn)
 }

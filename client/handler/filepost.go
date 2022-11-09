@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	file2 "sync/file"
+	"sync/server/tools"
 )
 
 var filestatus = make(map[string]int)
@@ -22,16 +23,16 @@ func PathExists(path string) (bool, error) {
 	}
 	return false, err
 }
-func filepost(w http.ResponseWriter,r *http.Request)  {
-	var Path = os.Getenv("datadir")
-	ok,err := PathExists(Path)
+func filepost(w http.ResponseWriter,r *http.Request) {
+	path := tools.RewritePath(Client.DataDIr)
+	ok,err := PathExists(path)
 	if err != nil{
 		fmt.Println("PathExists err: ",err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if !ok {
-		os.MkdirAll(Path,os.ModePerm)
+		os.MkdirAll(path,os.ModePerm)
 	}
 	http_body,_ := ioutil.ReadAll(r.Body)
 	var file file2.File
@@ -42,7 +43,7 @@ func filepost(w http.ResponseWriter,r *http.Request)  {
 		return
 	}
 
-	file.Name = strings.Replace(file.Name,file.Path,Path,-1)
+	file.Name = strings.Replace(file.Name,file.Path,path,-1)
 	if file.Operation == "create" {
 		err := sync(file, os.O_CREATE)
 		fmt.Println("创建数据")
