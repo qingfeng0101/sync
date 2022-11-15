@@ -1,8 +1,11 @@
 package tools
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -14,6 +17,7 @@ var overnum int64
 // 判断创建文件是否为目录
 func IsDir(path string) bool {
 	f,e := os.Stat(path)
+
 	if e != nil{
 		log.Println("os.Stat err: ",e)
 		return false
@@ -24,12 +28,12 @@ func IsDir(path string) bool {
 var pathdir string
 func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath string) (error) {
 		f,e := ioutil.ReadDir(path)
+
 		if e != nil{
 			log.Println("ioutil.ReadDir err: ",e)
 			return e
 		}
 		if len(f) == 0 && !Excluddir(path,excludes){
-
 			watch.Add(path)
 			file := file2.NewFile(basePath)
 			file.Name = path
@@ -47,7 +51,6 @@ func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath 
 				watch.Add(pathdir)
 				file := file2.NewFile(basePath)
 				file.Name = pathdir
-
 				file.Senddir(addr)
 				NilDir(pathdir,watch,excludes,addr,basePath)
 			} else if !dir.IsDir(){
@@ -61,18 +64,20 @@ func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath 
 					ShardData(pathdir,addr,basePath)
 					continue
 				}
-				f, e := os.Open(pathdir)
+				read, e := os.Open(pathdir)
 				if e != nil{
 					fmt.Println("open file err: ",e)
 					return e
 				}
-				s,_ := f.Stat()
+				s,_ := read.Stat()
 				buf := make([]byte,s.Size())
-				f.Read(buf)
+				read.Read(buf)
+				read.Close()
 				file := file2.NewFile(basePath)
 				file.Name = pathdir
 				file.Date = buf
 				file.Sendfile(addr)
+
 			}
 			continue
 		}
@@ -80,37 +85,97 @@ func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath 
 	return nil
 }
 // 判断文件大小是否使用分片
-func DataSize(path string,size int64) (bool,error) {
-	f,e := os.Open(path)
-	if e != nil{
-		fmt.Println("DataSize os.Open err: ",e)
-		return false,e
-	}
+// 重试打开文件次数
+var restart = 0
+func DataSize(path string,size int64) (status bool,err error) {
+	status = false
+	err = nil
+		f,e := os.Open(path)
+		defer f.Close()
+		if e != nil{
+			err = e
+			return
+		}
+		info, e := f.Stat()
+		if e != nil{
+			fmt.Println("DataSize os.Open err: ",e)
+			status = false
+			err = e
+			return
+		}
+		if info.Size() > size{
+			status = true
+			err = nil
+			return true,nil
+		}
+
+	return
+}
+// 分片
+func ShardData1(f *os.File,path,addr,basePath string) int {
 	defer f.Close()
-	info, e := f.Stat()
-	if e != nil{
-		fmt.Println("DataSize f.Stat err: ",e)
-		return false,e
+	info,err := f.Stat()
+	if err != nil{
+		fmt.Println("ShardData f.Stat: ",err)
+		return 0
 	}
-	if info.Size() > size{
-
-		return true,nil
+	file := file2.NewFile(basePath)
+	file.Operation = "append"
+	file.Name = path
+	if info.Size() % file2.Buf == 0{
+		file.Shards = info.Size() / file2.Buf
+	}else {
+		overnum = info.Size() % file2.Buf
+		file.Shards = info.Size() / file2.Buf + 1
 	}
+	for {
+		file.Shard +=1
+		if file.Shard == file.Shards {
+			if overnum != 0 {
+				f.Read(file2.Bufs[:overnum])
+				file.Date = file2.Bufs[:overnum]
+				ok := file.Sendfile(addr)
+				if !ok {
+					fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
+					return 0
+				}
+				break
+			}
+			f.Read(file2.Bufs)
+			file.Date = file2.Bufs
+			ok := file.Sendfile(addr)
+			if !ok {
+				fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
+				return 0
+			}
 
-	return false,nil
+			break
+		}
+
+		f.Read(file2.Bufs)
+		file.Date = file2.Bufs
+		ok := file.Sendfile(addr)
+		if !ok {
+			fmt.Printf("数据同步失败，切片：%d,文件名：%s", file.Shard, file.Name)
+			break
+		}
+
+
+	}
+	return 0
 }
 // 分片传入后端服务
-func ShardData(path,addr,basePath string)  {
+func ShardData(path,addr,basePath string) int {
     f,err := os.Open(path)
     if err != nil{
     	fmt.Println("ShardData os.Open err: ",err)
-		return
+		return 0
 	}
 	defer f.Close()
     info,err := f.Stat()
     if err != nil{
     	fmt.Println("ShardData f.Stat: ",err)
-		return
+		return 0
 	}
 	file := file2.NewFile(basePath)
     file.Operation = "append"
@@ -131,7 +196,7 @@ func ShardData(path,addr,basePath string)  {
 				ok := file.Sendfile(addr)
 				if !ok {
 					fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
-					return
+					return 0
 				}
 				break
 			}
@@ -140,7 +205,7 @@ func ShardData(path,addr,basePath string)  {
 			ok := file.Sendfile(addr)
 			if !ok {
 				fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
-				return
+				return 0
 			}
 
 			break
@@ -156,6 +221,7 @@ func ShardData(path,addr,basePath string)  {
 
 
 	}
+	return 0
 }
 // 判断目录是否排除
 func Excluddir(path string,exclude []string) bool  {
@@ -183,4 +249,17 @@ func RewritePath(path string) string {
 	}
 
 	return strings.TrimRightFunc(path, fn)
+}
+
+func Gethash(path string) (hash string,err error) {
+	file, _ := os.Open(path)
+	h_ob := sha256.New()
+	_, err = io.Copy(h_ob, file)
+	if err == nil {
+		hash := h_ob.Sum(nil)
+		hashvalue := hex.EncodeToString(hash)
+		return hashvalue,nil
+	} else {
+		return "哈希错误",err
+	}
 }

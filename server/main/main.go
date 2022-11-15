@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"log"
+	"os"
 	"strings"
 	"sync/conf"
 	"sync/server/server"
 	"sync/server/tools"
 )
 func main()  {
+	var files = make(map[string]*os.File)
 	var config string
 	flag.StringVar(&config,"f","./server.conf","指定服务端配置文件")
 	flag.Parse()
@@ -24,6 +26,7 @@ func main()  {
 	//basePath := conf.DataDIr
 	excludes := strings.Split(conf.Exclude,",")
 	opendel := conf.Delete
+	// 文件关闭通知
 
 	// goroutine状态标识
 	ch := make(chan int)
@@ -46,7 +49,7 @@ func main()  {
 	tools.NilDir(basePath,watch,excludes,conf.Clientaddr,basePath)
 	//fmt.Println("watch1: ",watch.WatchList())
 	//我们另启一个goroutine来处理监控对象的事件
-	go server.Event(watch,ch,opendel,excludes,conf.Clientaddr,basePath)
+	go server.Event(watch,ch,opendel,excludes,conf.Clientaddr,basePath,files)
 	//fmt.Println("watch2: ",watch.WatchList())
 	//循环
 	<-ch
