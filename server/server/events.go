@@ -38,7 +38,14 @@ func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string
 						//fmt.Println("path: ", path)
 					} else {
 						log.Println("创建文件 : ", ev.Name)
+						f,_ :=os.Stat(ev.Name)
 						file := file2.NewFile(basePath)
+						if f.Size() > 0 {
+							fe,_ := os.Open(ev.Name)
+							fe.Read(file2.Bufs)
+							fe.Close()
+							file.Date = file2.Bufs[:f.Size()]
+						}
 						file.Name = ev.Name
 						file.Operation = "create"
 						file.Sendfile(addr)
