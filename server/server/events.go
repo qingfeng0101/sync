@@ -60,6 +60,9 @@ func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string
 				if ev.Op&fsnotify.Write == fsnotify.Write {
 					ok := tools.IsDir(ev.Name)
 					if ok {
+						file := file2.NewFile(basePath)
+						file.Name = ev.Name
+						file.Senddir(addr)
 						continue
 					}
 
