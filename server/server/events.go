@@ -10,7 +10,7 @@ import (
 )
 var filestatus = make(map[string]int)
 
-func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string, addr, basePath string,files map[string]*os.File) {
+func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string, addr, basePath string,files map[string]*os.File,savedata *tools.SaveDatas, c chan *tools.ChenData) {
 	for {
 		select {
 		case ev := <-watch.Events:
@@ -30,7 +30,7 @@ func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string
 					if ok {
 						watch.Add(ev.Name)
 						log.Println("创建目录 : ", ev.Name)
-						e := tools.NilDir(ev.Name, watch, excludes, addr, basePath)
+						e := tools.NilDir(ev.Name, watch, excludes, addr, basePath,savedata)
 						if e != nil {
 							ch <- 1
 						}
@@ -49,6 +49,10 @@ func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string
 						file.Name = ev.Name
 						file.Operation = "create"
 						file.Sendfile(addr)
+						var s tools.ChenData
+						s.Name = file.Name
+						s.Value = f.ModTime().Unix()
+						c <- &s
 						filestatus = map[string]int{
 							ev.Name:0,
 						}
@@ -65,7 +69,6 @@ func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string
 						file.Senddir(addr)
 						continue
 					}
-
                     if len(files) == 0{
                     	f,_ := os.Open(ev.Name)
 						files[ev.Name] = f
@@ -78,6 +81,9 @@ func Event(watch *fsnotify.Watcher, ch chan int, opendel bool, excludes []string
 						ch <- 1
 						return
 					}
+					var s tools.ChenData
+					s.Name = ev.Name
+					c <- &s
 					fmt.Println("写入文件")
 				}
 

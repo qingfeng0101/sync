@@ -8,7 +8,7 @@ import (
 
 func main() {
 	handler.Init()
-	fmt.Println(handler.Client.Ipaddr+handler.Client.Port)
+	fmt.Println(handler.Client.Ipaddr+":"+handler.Client.Port+"启动成功")
 	http.HandleFunc("/dir/",handler.Handler)
 	http.HandleFunc("/file/",handler.Handler)
 	http.HandleFunc("/delete/",handler.Handler)

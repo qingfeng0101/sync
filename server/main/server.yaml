@@ -6,3 +6,5 @@ clientaddr: "192.168.10.2:8010"
 delete: false
 # 排除的目录，注意逗号分隔
 exclude: "/tmp-test/a,/tmp-test/c/"
+# 记录已同步文件
+savefile: "/root/sync/data.json"

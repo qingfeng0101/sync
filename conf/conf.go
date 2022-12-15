@@ -12,6 +12,7 @@ type Config struct {
 	Clientaddr string `json:"clientaddr"`
 	Delete bool `json:"delete"`
 	Exclude string `json:"exclude"`
+	SaveFile string `json:"savefile"`
 }
 type ClientConf struct {
 	Ipaddr string `json:"ipaddr"`

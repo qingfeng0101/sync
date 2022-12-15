@@ -26,7 +26,7 @@ func IsDir(path string) bool {
 }
 // 遍历目录加入watch
 var pathdir string
-func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath string) (error) {
+func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath string,savedata *SaveDatas) (error) {
 		f,e := ioutil.ReadDir(path)
 
 		if e != nil{
@@ -52,9 +52,23 @@ func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath 
 				file := file2.NewFile(basePath)
 				file.Name = pathdir
 				file.Senddir(addr)
-				NilDir(pathdir,watch,excludes,addr,basePath)
+				NilDir(pathdir,watch,excludes,addr,basePath,savedata)
 			} else if !dir.IsDir(){
+                if len(savedata.SaveData) == 0 {
+                	finfo,_ := os.Stat(pathdir)
+					savedata.Record(pathdir,finfo.ModTime().Unix())
+				}else {
+					if ok := savedata.Exist(pathdir);!ok{
+						finfo,_ := os.Stat(pathdir)
+						savedata.Record(pathdir,finfo.ModTime().Unix())
+					}else {
+						finfo,_ := os.Stat(pathdir)
+						if ok := savedata.ContrastDate(pathdir,finfo.ModTime().Unix());ok{
+							continue
+						}
 
+					}
+				}
 				ok,err := DataSize(pathdir,file2.Buf)
 				if err != nil{
 					fmt.Println("NilDir DataSize err: ",err)
@@ -79,6 +93,7 @@ func NilDir(path string,watch *fsnotify.Watcher,excludes []string,addr,basePath 
 				file.Sendfile(addr)
 
 			}
+
 			continue
 		}
 
