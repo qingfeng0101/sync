@@ -13,6 +13,7 @@ type Config struct {
 	Delete bool `json:"delete"`
 	Exclude string `json:"exclude"`
 	SaveFile string `json:"savefile"`
+	SourceDelete bool `json:"sourcedelete"`
 }
 type ClientConf struct {
 	Ipaddr string `json:"ipaddr"`

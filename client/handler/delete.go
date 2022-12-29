@@ -27,5 +27,6 @@ func del(w http.ResponseWriter,r *http.Request)  {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	log.Println("Remove file:",file.Name)
 	w.WriteHeader(http.StatusOK)
 }

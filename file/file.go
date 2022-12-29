@@ -29,7 +29,6 @@ func NewFile(basePath string) (file *File) {
 	}
 }
 func (f *File) Sendfile(addr string) bool {
-
 	b,e := json.Marshal(f)
 	if e != nil{
 		fmt.Println("encoder.Encode err: ",e)
@@ -72,7 +71,7 @@ func (f *File) Delete(addr string)  {
 		return
 	}
 	re,e := http.Post("http://"+addr+"/delete/","application/octet-stream",bytes.NewReader(b))
-	//defer re.Body.Close()
+	defer re.Body.Close()
 	if e != nil{
 		fmt.Println("post err: ",e)
 		return

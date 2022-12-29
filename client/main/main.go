@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"sync/client/handler"
 )
 
 func main() {
 	handler.Init()
-	fmt.Println(handler.Client.Ipaddr+":"+handler.Client.Port+"启动成功")
+	log.Println(handler.Client.Ipaddr+":"+handler.Client.Port+"启动成功")
 	http.HandleFunc("/dir/",handler.Handler)
 	http.HandleFunc("/file/",handler.Handler)
 	http.HandleFunc("/delete/",handler.Handler)

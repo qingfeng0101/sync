@@ -2,9 +2,11 @@
 datadir: "/tmp-test"
 # 客户端连接地址
 clientaddr: "192.168.10.2:8010"
-# 是否同步删除操作，true为同步，false为不同步
+# 是否同步删除操作，true为同步，false为不同步,默认不设置为false
 delete: false
 # 排除的目录，注意逗号分隔
 exclude: "/tmp-test/a,/tmp-test/c/"
-# 记录已同步文件
+# 记录已同步文件,默认不设置不记录
 savefile: "/root/sync/data.json"
+# 是否删除已同步文件，默认不设置为false
+sourcedelete: true

@@ -2,75 +2,59 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"github.com/fsnotify/fsnotify"
 	"log"
 	"os"
+	"os/signal"
+	"regexp"
 	"strings"
 	"sync/conf"
 	"sync/server/server"
 	"sync/server/tools"
+	"syscall"
 )
 func main()  {
-	var files = make(map[string]*os.File)
 	var config string
 	flag.StringVar(&config,"f","./server.conf","指定服务端配置文件")
 	flag.Parse()
     conf := conf.NewConfing(config)
     if conf == nil{
-    	fmt.Println("服务异常")
+    	log.Println("服务异常")
 		return
 	}
-
-	basePath := tools.RewritePath(conf.DataDIr)
-	//basePath := conf.DataDIr
+    re,_:= regexp.Compile("#")
+	conf.DataDIr = tools.RewritePath(conf.DataDIr)
+	basePath := conf.DataDIr
 	excludes := strings.Split(conf.Exclude,",")
-	opendel := conf.Delete
-	// 文件关闭通知
-
-	// goroutine状态标识
-	ch := make(chan int)
-	//创建一个监控对象
-	watch, err := fsnotify.NewWatcher();
-	if err != nil {
-		log.Fatal(err);
+	if conf.SaveFile != "" &&  re.FindString(conf.SaveFile) != ""{
+		conf.SaveFile = ""
 	}
-	defer watch.Close();
-	//patharr := make([]string,0)
+	// 调用管道初始化集合函数
+	Channels := tools.NewChannels()
+	// 通知子进程关闭
+	signal.Notify(Channels.Sigs, os.Interrupt, os.Kill,syscall.SIGUSR1, syscall.SIGUSR2,  syscall.SIGINT, syscall.SIGTERM)
+	// 关闭监听
+	defer Channels.Watch.Close()
 	//添加要监控的对象，文件或文件夹
-	//patharr = append(patharr,"./tmp")
-	//watch.WatchList()
-	err = watch.Add(basePath);
+	err := Channels.Watch.Add(conf.DataDIr);
 	if err != nil {
 		log.Fatal(err);
 	}
-
-
     // 加载同步过的文件
     var savedata *tools.SaveDatas
-	if conf.SaveFile != " "{
-		savedata = tools.Init(conf.SaveFile)
-
-	}
+	savedata = tools.Init(conf.SaveFile)
 	// 启动监听记录数据的goroutine
-	var c = make(chan *tools.ChenData)
-	go tools.SaveData(c,conf.SaveFile)
+	go tools.SaveData(Channels,savedata,conf)
 	//我们另启一个goroutine来处理监控对象的事件
-	go server.Event(watch,ch,opendel,excludes,conf.Clientaddr,basePath,files,savedata,c)
+	go server.Event(Channels,excludes,conf)
 	// 遍历当前监听的目录，全量数据同步一次
-	tools.NilDir(basePath,watch,excludes,conf.Clientaddr,basePath,savedata)
-	// 将同步过的文件落盘
-	err = savedata.Save()
+	err = tools.NilDir(Channels,basePath,excludes,conf.Clientaddr,basePath)
 	if err != nil{
-		log.Println("savedata.Save() err: ",err)
-		log.Println("服务异常退出")
+		log.Println("遍历目录异常 err： ",err)
 		return
 	}
-	// 落盘后清空缓存数据
-	savedata.Empty()
-	//fmt.Println("watch1: ",watch.WatchList())
-
-	//循环
-	<-ch
+	if savedata.SavePath != "" {
+		go tools.CronData(Channels.DataChan, savedata)
+	}
+	<-Channels.EndChan
 	log.Println("服务异常退出")
 }
