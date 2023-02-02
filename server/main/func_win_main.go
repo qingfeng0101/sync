@@ -1,4 +1,4 @@
-// +build linux
+// +build !linux
 
 package main
 
@@ -33,8 +33,7 @@ func main()  {
 	// 调用管道初始化集合函数
 	Channels := tools.NewChannels()
 	// 通知子进程关闭
-
-	signal.Notify(Channels.Sigs, os.Interrupt,os.Kill,syscall.SIGUSR1,syscall.SIGUSR2,  syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(Channels.Sigs, os.Interrupt,os.Kill,  syscall.SIGINT, syscall.SIGTERM)
 	// 关闭监听
 	defer Channels.Watch.Close()
 	//添加要监控的对象，文件或文件夹
