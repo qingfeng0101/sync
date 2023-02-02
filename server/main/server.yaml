@@ -10,3 +10,7 @@ exclude: "/tmp-test/a,/tmp-test/c/"
 savefile: "/root/sync/data.json"
 # 是否删除已同步文件，默认不设置为false
 sourcedelete: true
+# 同步线程数，默认不设置为1
+savethread: 10
+# 服务端连接客户端重试连接间隔,默认不设置3秒
+timeout: 3

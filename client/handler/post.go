@@ -22,6 +22,9 @@ func post(w http.ResponseWriter,r *http.Request)  {
 	if file.Systype == "windows"{
 		file.Name = strings.Replace(file.Name,"\\","/",-1)
 	}
-    os.MkdirAll(file.Name,os.ModePerm)
+	ok,_:=PathExists(file.Name)
+	if !ok{
+		os.MkdirAll(file.Name,os.ModePerm)
+	}
     w.WriteHeader(http.StatusOK)
 }

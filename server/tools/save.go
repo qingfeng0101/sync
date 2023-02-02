@@ -3,13 +3,15 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 	"sync/conf"
 	file2 "sync/file"
 	"time"
 )
-
+var ok bool
 func SaveData(channels *Channels,s *SaveDatas,conf *conf.Config)  {
 	for {
 		select  {
@@ -20,38 +22,39 @@ func SaveData(channels *Channels,s *SaveDatas,conf *conf.Config)  {
 				continue
 			}
 			if s.Exist(c.Name) && s.ContrastDate(c.Name,info.ModTime().Unix()){
-				continue
+                continue
 			}
-			ok,err := DataSize(c.Name,file2.Buf)
-			if err != nil{
-				log.Println("NilDir DataSize err: ",err)
-				channels.EndChan <- 1
-				return
+            if info == nil{
+            	continue
 			}
-			if ok{
-				ShardData(c.Name,conf.Clientaddr,conf.DataDIr)
+			if info.Size() > file2.Buf {
+				ok = ShardData(c.Name,conf)
 				if conf.SourceDelete {
 					os.Remove(c.Name)
 				}
+
 			}else {
 				c.Value = info.Size()
-				SmallData(c,conf)
+				ok = SmallData(c,conf)
 				if conf.SourceDelete {
 					os.Remove(c.Name)
 				}
 			}
-            if s.SavePath != ""{
+			if s.SavePath != "" && ok {
 				s.Record(c.Name,info.ModTime().Unix())
-				if len(s.SaveData) % 10 ==0 {
+				if len(*s.SaveData) % 10 ==0 {
 					s.Save()
-					if len(channels.DataChan) < 100{
+					if len(channels.DataChan) < 10{
 						channels.DataChan <- 1
 					}
+				}
+
 			}
-			}
-		case  <- channels.Sigs:
-			channels.EndChan <- 1
-			break
+
+
+		case  <- channels.SaveStop:
+            channels.EndChan <- 1
+			return
 		}
 	}
 }
@@ -63,15 +66,17 @@ type ChenData struct {
 }
 
 type SaveDatas struct {
-	SaveData map[string]int64
+	SaveData *map[string]int64
+	Mutex *sync.Mutex
 	//SaveData sync.Map
 	SavePath string `json:"save_path"`
 }
 
 func Init(path string)  *SaveDatas {
 	var SaveDatas  SaveDatas
-	SaveDatas.SaveData = map[string]int64{}
+	SaveDatas.SaveData = &map[string]int64{}
 	SaveDatas.SavePath = path
+	SaveDatas.Mutex = &sync.Mutex{}
 	if path != ""{
 		if _, err := os.Stat(SaveDatas.SavePath); !os.IsNotExist(err) {
 			f,err :=  os.Open(SaveDatas.SavePath)
@@ -89,34 +94,63 @@ func Init(path string)  *SaveDatas {
 	return &SaveDatas
 }
 func (s *SaveDatas) Record(name string,d int64) {
-
-	s.SaveData[name] = d
-
+	s.Mutex.Lock()
+	(*s.SaveData)[name] = d
+    s.Mutex.Unlock()
 
 }
 func (s *SaveDatas) Exist(name string) bool {
-
-	 _,ok := s.SaveData[name]
+	s.Mutex.Lock()
+	 _,ok := (*s.SaveData)[name]
+	s.Mutex.Unlock()
 	 return ok
 }
 func (s *SaveDatas) GetDate(name string) int64 {
-	d,_ := s.SaveData[name]
+
+	d,_ := (*s.SaveData)[name]
 
 	return d
 }
 func (s *SaveDatas) ContrastDate(name string,new int64) bool {
+	s.Mutex.Lock()
 	old := s.GetDate(name)
+	s.Mutex.Unlock()
 	if new > old{
 		return false
 	}
 	return true
 }
 func (s *SaveDatas) Del(name string)  {
-	delete(s.SaveData,name)
+	s.Mutex.Lock()
+	delete((*s.SaveData),name)
+	s.Mutex.Unlock()
+}
+func (s *SaveDatas) Load() (*map[string]int64,error) {
+	f,err := os.Open(s.SavePath)
+	if err != nil{
+		return nil,err
+	}
+	b,err := ioutil.ReadAll(f)
+	if err != nil{
+		return nil,err
+	}
+	temp := make(map[string]int64)
+	json.Unmarshal(b,&temp)
+	return &temp,nil
+}
+func (s *SaveDatas) Merge(temp,old *map[string]int64)  {
+	for tname,v:= range *temp{
+		for name,_:= range *old{
+            if tname == name{
+				(*old)[name] = v
+			}
+		}
+	}
+
 }
 func (s *SaveDatas) Save() error {
-
-	b,err := json.Marshal(s.SaveData)
+	s.Mutex.Lock()
+	b,err := json.Marshal(*s.SaveData)
 	if err != nil{
 		return err
 	}
@@ -127,19 +161,20 @@ func (s *SaveDatas) Save() error {
 	defer f.Close()
 	f.Write(b)
 	f.Sync()
+	s.Mutex.Unlock()
 	return nil
 }
 func (s *SaveDatas) Empty()  {
-	s.SaveData = make(map[string]int64)
+	s.SaveData = &map[string]int64{}
 
 }
 func CronData(c chan int, s *SaveDatas)  {
-	lendata :=  len(s.SaveData)
+	lendata :=  len(*s.SaveData)
 	for  {
 		time.Sleep(time.Second * 10)
-		if len(c) == 0 && len(s.SaveData) != lendata {
+		if len(c) == 0 && len(*s.SaveData) != lendata {
 			s.Save()
-			lendata = len(s.SaveData)
+			lendata = len(*s.SaveData)
 		}else {
 			for n := 0;n <len(c);n++{
 				go func() {

@@ -5,6 +5,8 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+	//"sync/server/tools"
+	"time"
 )
 
 type Config struct {
@@ -14,6 +16,8 @@ type Config struct {
 	Exclude string `json:"exclude"`
 	SaveFile string `json:"savefile"`
 	SourceDelete bool `json:"sourcedelete"`
+	SaveThread   int `json:"savethread"`
+	TimeOut    time.Duration `json:"timeout"`
 }
 type ClientConf struct {
 	Ipaddr string `json:"ipaddr"`
@@ -58,6 +62,15 @@ func NewConfing(path string) *Config {
 	if err != nil{
 		fmt.Println("config json.Unmarshal err: ",err)
 		return nil
+	}
+
+	// 初始化线程数
+	if Config.SaveThread == 0{
+		Config.SaveThread = 1
+	}
+    // 默认超时时间
+    if Config.TimeOut == 0{
+		Config.TimeOut = 3
 	}
 	return &Config
 }

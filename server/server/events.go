@@ -7,9 +7,8 @@ import (
 	"sync/conf"
 	file2 "sync/file"
 	"sync/server/tools"
+	"syscall"
 )
-var filestatus = make(map[string]int)
-
 func Event(channels *tools.Channels, excludes []string, conf *conf.Config) {
 	for {
 		select {
@@ -31,15 +30,16 @@ func Event(channels *tools.Channels, excludes []string, conf *conf.Config) {
 						if err != nil {
 							log.Println("添加目录监听失败：", err)
 							channels.EndChan <- 1
+							return
 						}
-						log.Println("创建目录 : ", ev.Name)
 						e := tools.NilDir(channels, ev.Name, excludes, conf.Clientaddr, conf.DataDIr)
 						if e != nil {
 							log.Println("遍历目录异常11 err：", e)
 							channels.EndChan <- 1
+							return
 						}
 					} else {
-						fmt.Println("IsTemp: ", tools.IsTemp(ev.Name))
+						fmt.Println("IsTemp: ",tools.IsTemp(ev.Name))
 						if !tools.IsTemp(ev.Name) {
 							log.Println("创建文件 : ", ev.Name)
 							var ChenData tools.ChenData
@@ -89,8 +89,10 @@ func Event(channels *tools.Channels, excludes []string, conf *conf.Config) {
 					}
 				}
 			}
-		case <-channels.Sigs:
-			channels.EndChan <- 1
+		case Sigs:= <-channels.Sigs:
+			for n:=0;n<conf.SaveThread;n++{
+				channels.SaveStop <- Sigs
+			}
 			return
 
 		case err := <-channels.Watch.Errors:
@@ -98,7 +100,9 @@ func Event(channels *tools.Channels, excludes []string, conf *conf.Config) {
 			if err != nil{
 				log.Println("error : ", err)
 			}
-			channels.EndChan <- 1
+			for n:=0;n<conf.SaveThread;n++{
+					channels.SaveStop <- syscall.SIGKILL
+				}
 			return
 			}
 		}

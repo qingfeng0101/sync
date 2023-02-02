@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"time"
 )
 
 const Buf = 1048576
@@ -28,24 +29,27 @@ func NewFile(basePath string) (file *File) {
 		Systype: ostype,
 	}
 }
-func (f *File) Sendfile(addr string) bool {
+func (f *File) Sendfile(addr string,timeout time.Duration) bool {
 	b,e := json.Marshal(f)
 	if e != nil{
 		fmt.Println("encoder.Encode err: ",e)
 		return false
 	}
-	fmt.Println("file Sendfile file name: ",f.Name)
-	re,e := http.Post("http://"+addr+"/file/","application/json;utf-8",bytes.NewReader(b))
-	defer re.Body.Close()
-	if e != nil{
-		fmt.Println("post err: ",e)
-		return false
+	for {
+		re,e := http.Post("http://"+addr+"/file/","application/json;utf-8",bytes.NewReader(b))
+		if e != nil{
+			fmt.Println("post err: ",e)
+			time.Sleep(time.Second*timeout)
+			continue
+		}
+		re.Body.Close()
+		if re.StatusCode != http.StatusOK {
+			return false
+		}
+		b=[]byte{}
+		return true
 	}
-	if re.StatusCode != http.StatusOK {
-		fmt.Println("code: ",re.StatusCode)
-		return false
-	}
-	return true
+
 }
 func (f *File) Senddir(addr string)  {
 	b,e := json.Marshal(f)
@@ -54,15 +58,16 @@ func (f *File) Senddir(addr string)  {
 		return
 	}
 	re,e := http.Post("http://"+addr+"/dir/","application/octet-stream",bytes.NewReader(b))
-	//defer re.Body.Close()
 	if e != nil{
 		fmt.Println("post err: ",e)
 		return
 	}
+	defer re.Body.Close()
 	if re.StatusCode != http.StatusOK {
 		fmt.Println("code: ",re.StatusCode)
 		return
 	}
+	b=[]byte{}
 }
 func (f *File) Delete(addr string)  {
 	b,e := json.Marshal(f)
@@ -80,5 +85,6 @@ func (f *File) Delete(addr string)  {
 		fmt.Println("code: ",re.StatusCode)
 		return
 	}
+	b=[]byte{}
 }
 

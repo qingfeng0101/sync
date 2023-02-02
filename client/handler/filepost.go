@@ -48,9 +48,16 @@ func filepost(w http.ResponseWriter,r *http.Request) {
 	if file.Systype == "windows"{
 		file.Name = strings.Replace(file.Name,"\\","/",-1)
 	}
+
+	arr := strings.Split(file.Name,"/")
+	arr = append(arr[:0],arr[:len(arr)-1]...)
+	str := "/"+strings.Join(arr,"/")
+	ok,_ = PathExists(str)
+	if !ok{
+		os.MkdirAll(str,os.ModePerm)
+	}
 	if file.Operation == "create" {
 		err := sync(file, os.O_CREATE)
-
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

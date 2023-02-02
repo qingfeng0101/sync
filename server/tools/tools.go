@@ -29,6 +29,7 @@ func IsDir(path string) bool {
 // 遍历目录加入watch
 var m = 0
 var pathdir string
+
 func NilDir(channels *Channels,path string,excludes []string,addr,basePath string) (error) {
 	    fmt.Println("数目： ",m)
 		f,e := ioutil.ReadDir(path)
@@ -36,6 +37,7 @@ func NilDir(channels *Channels,path string,excludes []string,addr,basePath strin
 			log.Println("ioutil.ReadDir err: ",e)
 			return e
 		}
+		fmt.Println(len(f))
 		if len(f) == 0 && !Excluddir(path,excludes){
 			err := channels.Watch.Add(path)
 			if err != nil{
@@ -47,6 +49,7 @@ func NilDir(channels *Channels,path string,excludes []string,addr,basePath strin
 			return nil
 		}
 		for _,dir := range f{
+			fmt.Println("11111")
 			var ostype = runtime.GOOS
 			if ostype == "windows"{
 				pathdir = path +"\\"+dir.Name()
@@ -68,33 +71,45 @@ func NilDir(channels *Channels,path string,excludes []string,addr,basePath strin
 					log.Println("IsNotExist filename：",pathdir)
 					continue
 				}
-				var ch ChenData
-				ch.Name = pathdir
-				ch.Value = finfo.ModTime().Unix()
-				channels.ChanDatas <- &ch
+				var ch  = &ChenData{
+					Name:  pathdir,
+					Value: finfo.ModTime().Unix(),
+				}
+
+				//ch.Name = pathdir
+				//ch.Value = finfo.ModTime().Unix()
+				channels.ChanDatas <- ch
 				m++
 			}
+            fmt.Println("长度： ",len(channels.ChanDatas))
 			continue
 		}
 	return nil
 }
 // 发送小文件
-func SmallData(ChenData *ChenData,conf *conf.Config)  {
+func SmallData(ChenData *ChenData,conf *conf.Config) bool {
 	read, e := os.Open(ChenData.Name)
 	if e != nil{
 		log.Println("open file err: ",e)
+		return false
 	}
-	//s,_ := read.Stat()
-	buf := make([]byte,ChenData.Value)
-	read.Read(buf)
-	read.Close()
+	defer read.Close()
+	//buf := make([]byte,ChenData.Value)
+	//read.Read(buf)
+	//buf,err := ioutil.ReadFile(ChenData.Name)
+	//if err != nil{
+	//	log.Println("open file err: ",err)
+	//	return false
+	//}
 	file := file2.NewFile(conf.DataDIr)
 	file.Name = ChenData.Name
-	file.Date = buf
+	file.Date = make([]byte,ChenData.Value)
+	read.Read(file.Date)
+	//file.Date = buf
 	if ChenData.Operation != ""{
 		file.Operation = ChenData.Operation
 	}
-	file.Sendfile(conf.Clientaddr)
+	return file.Sendfile(conf.Clientaddr,conf.TimeOut)
 }
 // 判断文件大小是否使用分片
 // 重试打开文件次数
@@ -117,72 +132,72 @@ func DataSize(path string,size int64) (status bool,err error) {
 	return
 }
 // 分片
-func ShardData1(f *os.File,path,addr,basePath string) int {
-	defer f.Close()
-	info,err := f.Stat()
-	if err != nil{
-		log.Println("ShardData f.Stat: ",err)
-		return 0
-	}
-	file := file2.NewFile(basePath)
-	file.Operation = "append"
-	file.Name = path
-	if info.Size() % file2.Buf == 0{
-		file.Shards = info.Size() / file2.Buf
-	}else {
-		overnum = info.Size() % file2.Buf
-		file.Shards = info.Size() / file2.Buf + 1
-	}
-	for {
-		file.Shard +=1
-		if file.Shard == file.Shards {
-			if overnum != 0 {
-				f.Read(file2.Bufs[:overnum])
-				file.Date = file2.Bufs[:overnum]
-				ok := file.Sendfile(addr)
-				if !ok {
-					fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
-					return 0
-				}
-				break
-			}
-			f.Read(file2.Bufs)
-			file.Date = file2.Bufs
-			ok := file.Sendfile(addr)
-			if !ok {
-				log.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
-				return 0
-			}
-
-			break
-		}
-
-		f.Read(file2.Bufs)
-		file.Date = file2.Bufs
-		ok := file.Sendfile(addr)
-		if !ok {
-			log.Printf("数据同步失败，切片：%d,文件名：%s", file.Shard, file.Name)
-			break
-		}
-
-
-	}
-	return 0
-}
+//func ShardData1(f *os.File,conf *conf.Config) bool {
+//	defer f.Close()
+//	info,err := f.Stat()
+//	if err != nil{
+//		log.Println("ShardData f.Stat: ",err)
+//		return false
+//	}
+//	file := file2.NewFile(conf.DataDIr)
+//	file.Operation = "append"
+//	file.Name = path
+//	if info.Size() % file2.Buf == 0{
+//		file.Shards = info.Size() / file2.Buf
+//	}else {
+//		overnum = info.Size() % file2.Buf
+//		file.Shards = info.Size() / file2.Buf + 1
+//	}
+//	for {
+//		file.Shard +=1
+//		if file.Shard == file.Shards {
+//			if overnum != 0 {
+//				f.Read(file2.Bufs[:overnum])
+//				file.Date = file2.Bufs[:overnum]
+//				ok := file.Sendfile(addr)
+//				if !ok {
+//					fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
+//					return false
+//				}
+//				break
+//			}
+//			f.Read(file2.Bufs)
+//			file.Date = file2.Bufs
+//			ok := file.Sendfile(addr)
+//			if !ok {
+//				log.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
+//				return false
+//			}
+//
+//			break
+//		}
+//
+//		f.Read(file2.Bufs)
+//		file.Date = file2.Bufs
+//		ok := file.Sendfile(addr)
+//		if !ok {
+//			log.Printf("数据同步失败，切片：%d,文件名：%s", file.Shard, file.Name)
+//			return false
+//		}
+//
+//
+//	}
+//	return true
+//}
 // 分片传入后端服务
-func ShardData(path,addr,basePath string) int {
+func ShardData(path string,conf *conf.Config) bool {
     f,err := os.Open(path)
     if err != nil{
     	log.Println("ShardData os.Open err: ",err)
-		return 0
+		return false
 	}
 	defer f.Close()
     info,err := f.Stat()
     if err != nil{
     	log.Println("ShardData f.Stat: ",err)
-		return 0
+		return false
 	}
-	file := file2.NewFile(basePath)
+	file := file2.NewFile(conf.DataDIr)
     file.Operation = "append"
     file.Name = path
     if info.Size() % file2.Buf == 0{
@@ -198,19 +213,19 @@ func ShardData(path,addr,basePath string) int {
 				f.Read(file2.Bufs[:overnum])
 				file.Date = file2.Bufs[:overnum]
 
-				ok := file.Sendfile(addr)
+				ok := file.Sendfile(conf.Clientaddr,conf.TimeOut)
 				if !ok {
 					fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
-					return 0
+					return false
 				}
 				break
 			}
 			f.Read(file2.Bufs)
 			file.Date = file2.Bufs
-			ok := file.Sendfile(addr)
+			ok := file.Sendfile(conf.Clientaddr,conf.TimeOut)
 			if !ok {
 				fmt.Printf("数据同步失败，切片：%d,文件名：%s",file.Shard,file.Name)
-				return 0
+				return false
 			}
 
 			break
@@ -218,15 +233,14 @@ func ShardData(path,addr,basePath string) int {
 
 		f.Read(file2.Bufs)
 		file.Date = file2.Bufs
-		ok := file.Sendfile(addr)
+		ok := file.Sendfile(conf.Clientaddr,conf.TimeOut)
 		if !ok {
 			log.Printf("数据同步失败，切片：%d,文件名：%s", file.Shard, file.Name)
-			break
+			return false
+
 		}
-
-
 	}
-	return 0
+	return true
 }
 // 判断目录是否排除
 func Excluddir(path string,exclude []string) bool  {
@@ -244,15 +258,14 @@ func RewritePath(path string) string {
 	var fn func(rune) bool
 
 	if ostype == "windows"{
-		 fn = func(c rune) bool {
+		fn = func(c rune) bool {
 			return strings.ContainsRune("\\", c)
 		}
 	}else if ostype == "linux"{
-		 fn = func(c rune) bool {
+		fn = func(c rune) bool {
 			return strings.ContainsRune("/", c)
 		}
 	}
-
 	return strings.TrimRightFunc(path, fn)
 }
 
@@ -270,6 +283,7 @@ func IsTemp(path string) (bool) {
 
 		str := paths[len(paths)-1]
 		if re.FindString(str) != ""{
+			fmt.Println("111111",str)
 			return true
 		}
 	}
