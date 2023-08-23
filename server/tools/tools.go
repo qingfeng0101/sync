@@ -47,7 +47,6 @@ func NilDir(channels *Channels,path string,excludes []string,addr,basePath strin
 			return nil
 		}
 		for _,dir := range f{
-			fmt.Println("11111")
 			var ostype = runtime.GOOS
 			if ostype == "windows"{
 				pathdir = path +"\\"+dir.Name()
@@ -79,7 +78,6 @@ func NilDir(channels *Channels,path string,excludes []string,addr,basePath strin
 				channels.ChanDatas <- ch
 				m++
 			}
-            fmt.Println("长度： ",len(channels.ChanDatas))
 			continue
 		}
 	return nil
