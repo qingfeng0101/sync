@@ -31,13 +31,11 @@ var m = 0
 var pathdir string
 
 func NilDir(channels *Channels,path string,excludes []string,addr,basePath string) (error) {
-	    fmt.Println("数目： ",m)
 		f,e := ioutil.ReadDir(path)
 		if e != nil{
 			log.Println("ioutil.ReadDir err: ",e)
 			return e
 		}
-		fmt.Println(len(f))
 		if len(f) == 0 && !Excluddir(path,excludes){
 			err := channels.Watch.Add(path)
 			if err != nil{
